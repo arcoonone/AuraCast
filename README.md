@@ -4,8 +4,6 @@
 
 It doesn't just tell you it's raining—it shows you exactly what to wear, visualizing both a stylish outfit on a model and a detailed item breakdown (knolling) based on the specific location, temperature, and local fashion trends.
 
-![截图](images/x.webp)
-
 ## ✨ Features
 
 - **Hyper-Local Weather:** 
