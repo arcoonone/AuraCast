@@ -23,6 +23,12 @@ const SearchIcon = () => (
   </svg>
 );
 
+const UserIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+  </svg>
+);
+
 // Flag helper
 const getCountryFlag = (countryCode?: string) => {
   if (!countryCode) return '';
@@ -228,6 +234,9 @@ function App() {
           <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto z-50">
             {/* Gender Selector - Height Matched to Search */}
              <div className="bg-slate-800/50 p-2 rounded-2xl border border-slate-700/50 backdrop-blur-md shadow-lg flex items-center h-14">
+                <div className="pl-2 pr-2 text-slate-400">
+                  <UserIcon />
+                </div>
                 {(['Female', 'Male', 'Unisex'] as Gender[]).map((g) => (
                   <button
                     key={g}
