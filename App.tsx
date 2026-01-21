@@ -47,13 +47,13 @@ function App() {
   // Search state
   const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isSearchError, setIsSearchError] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const [weatherData, setWeatherData] = useState<WeatherDay[]>([]);
   const [selectedDay, setSelectedDay] = useState<WeatherDay | null>(null);
   const [outfitData, setOutfitData] = useState<Record<string, OutfitGenerationResult>>({});
   const [loadingState, setLoadingState] = useState<LoadingState>(LoadingState.IDLE);
-  const [error, setError] = useState<string | null>(null);
 
   // Initial IP-based location estimation
   useEffect(() => {
@@ -66,25 +66,20 @@ function App() {
             if (data.latitude && data.longitude) {
                 const coords = `${data.latitude},${data.longitude}`;
                 const cityName = data.city || "Current Location";
-                setCity(cityName);
-                setInputCity(cityName);
-                loadWeather(coords);
+                loadWeather(coords, cityName);
             } else if (data.city) {
-                setCity(data.city);
-                setInputCity(data.city);
-                loadWeather(data.city);
+                loadWeather(data.city, data.city);
             } else {
               throw new Error("Location info not found in IP data");
             }
         } catch (e) {
             console.error("IP loc failed, default to Tokyo", e);
             // Fallback
-            setCity("Tokyo");
-            setInputCity("Tokyo");
-            loadWeather("Tokyo");
+            loadWeather("Tokyo", "Tokyo");
         }
     };
     
+    // Only run if we haven't initialized
     if (!city) fetchIpLocation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -100,22 +95,43 @@ function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const loadWeather = async (loc: string) => {
+  // Updated loadWeather to handle errors gracefully without clearing previous valid state immediately
+  const loadWeather = async (query: string, displayName?: string) => {
     setLoadingState(LoadingState.FETCHING_WEATHER);
-    setError(null);
-    setWeatherData([]);
-    setSelectedDay(null);
-    setOutfitData({}); // Clear cache on new city
+    setIsSearchError(false);
+    
+    // Determine the name to display on success
+    const finalDisplayName = displayName || (query.includes(',') ? "Current Location" : query);
 
     try {
-      const forecast = await fetchWeatherForecast(loc);
-      setWeatherData(forecast);
+      const forecast = await fetchWeatherForecast(query);
+      
+      // Only update state if we successfully got data
       if (forecast.length > 0) {
+        setWeatherData(forecast);
         setSelectedDay(forecast[0]);
+        setCity(finalDisplayName);
+        setInputCity(finalDisplayName);
+        setOutfitData({}); // Clear cache only on new valid city
+      } else {
+        throw new Error("No weather data found");
       }
     } catch (e) {
       console.error("Load weather error:", e);
-      setError("Failed to load weather. Please check the city name and try again.");
+      setIsSearchError(true);
+      
+      // Auto-hide the error state after a few seconds
+      setTimeout(() => setIsSearchError(false), 2500);
+
+      // Fallback logic: 
+      // If this is the initial load (no weather data yet), try a safe default
+      if (weatherData.length === 0) {
+        if (query !== 'Tokyo') {
+           loadWeather('Tokyo', 'Tokyo');
+        }
+      }
+      // If we already have weather data, do nothing (keep showing the old valid data).
+      // The red border on the input (isSearchError) will indicate the failure to the user.
     } finally {
       setLoadingState(LoadingState.IDLE);
     }
@@ -132,27 +148,23 @@ function App() {
       if (results.length > 0) {
         setShowDropdown(true);
       } else {
-        // If no results via search, try direct load (legacy behavior) just in case
-        setCity(inputCity);
-        loadWeather(inputCity);
+        // If no results via search, try direct load (graceful attempt)
+        loadWeather(inputCity, inputCity);
         setShowDropdown(false);
       }
     } catch (e) {
        // If search fails, try loading directly
-       setCity(inputCity);
-       loadWeather(inputCity);
+       loadWeather(inputCity, inputCity);
        setShowDropdown(false);
     }
   };
 
   const handleSelectLocation = (loc: LocationSearchResult) => {
     const displayName = `${loc.name}`; // We display just name in header, but could add country
-    setCity(displayName);
-    setInputCity(displayName); // Update input to match selection
     setShowDropdown(false);
-    // Use lat/lon for precise weather fetching
+    // Use lat/lon for precise weather fetching, pass name for display
     const coords = `${loc.latitude},${loc.longitude}`;
-    loadWeather(coords);
+    loadWeather(coords, displayName);
   };
 
   const handleGps = () => {
@@ -167,14 +179,14 @@ function App() {
       async (position) => {
         const { latitude, longitude } = position.coords;
         const coordsString = `${latitude},${longitude}`;
-        setCity("Current Location"); 
-        setInputCity("Current Location");
-        await loadWeather(coordsString);
+        // Use coordinates to load, display "Current Location"
+        loadWeather(coordsString, "Current Location");
       },
       (err) => {
         console.error(err);
         setLoadingState(LoadingState.IDLE);
-        alert("Unable to retrieve location");
+        setIsSearchError(true);
+        setTimeout(() => setIsSearchError(false), 2500);
       }
     );
   };
@@ -200,6 +212,7 @@ function App() {
       }));
     } catch (e) {
       console.error(e);
+      // Optional: Could add a toast here, but alert is acceptable for action failure (vs passive load failure)
       alert("Failed to generate outfit images. Please try again.");
     } finally {
       setLoadingState(LoadingState.IDLE);
@@ -254,17 +267,27 @@ function App() {
 
             {/* Search Component - Explicit Height Added */}
             <div className="relative flex-1" ref={searchRef}>
-              <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 bg-slate-800/50 p-2 rounded-2xl border border-slate-700/50 backdrop-blur-md shadow-lg h-14">
+              <form 
+                onSubmit={handleSearchSubmit} 
+                className={`flex items-center gap-2 bg-slate-800/50 p-2 rounded-2xl border backdrop-blur-md shadow-lg h-14 transition-colors duration-300 ${
+                  isSearchError 
+                    ? 'border-red-500/60 shadow-[0_0_15px_rgba(239,68,68,0.2)]' 
+                    : 'border-slate-700/50'
+                }`}
+              >
                 <div className="relative flex-1 md:w-64">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <div className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none transition-colors ${isSearchError ? 'text-red-400' : 'text-slate-400'}`}>
                     <LocationIcon />
                   </div>
                   <input
                     type="text"
                     value={inputCity}
-                    onChange={(e) => setInputCity(e.target.value)}
-                    placeholder="Enter city (e.g. Tokyo or 东京)"
-                    className="block w-full pl-10 pr-3 py-2 bg-transparent border-none focus:ring-0 text-white placeholder-slate-500 font-medium"
+                    onChange={(e) => {
+                      setInputCity(e.target.value);
+                      if (isSearchError) setIsSearchError(false); // Clear error when typing
+                    }}
+                    placeholder={isSearchError ? "Location not found..." : "Enter city (e.g. Tokyo or 东京)"}
+                    className={`block w-full pl-10 pr-3 py-2 bg-transparent border-none focus:ring-0 text-white placeholder-slate-500 font-medium ${isSearchError ? 'placeholder-red-400/50' : ''}`}
                     autoComplete="off"
                   />
                 </div>
@@ -280,7 +303,7 @@ function App() {
                 
                 <button 
                   type="submit"
-                  className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all shadow-md"
+                  className={`p-2 text-white rounded-xl transition-all shadow-md ${isSearchError ? 'bg-red-500 hover:bg-red-600' : 'bg-indigo-600 hover:bg-indigo-500'}`}
                 >
                   <SearchIcon />
                 </button>
@@ -314,21 +337,17 @@ function App() {
         </header>
 
         {/* Loading / Error States */}
-        {loadingState === LoadingState.FETCHING_WEATHER && (
+        {loadingState === LoadingState.FETCHING_WEATHER && weatherData.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 animate-pulse">
             <div className="text-6xl mb-4">🔮</div>
             <p className="text-xl text-indigo-300 font-medium">Consulting the oracles...</p>
           </div>
         )}
-
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-6 rounded-2xl text-center mb-8">
-            {error}
-          </div>
-        )}
+        
+        {/* Note: Error banner removed for graceful handling. Visual cues are in the search bar. */}
 
         {/* Weather Strip */}
-        {weatherData.length > 0 && loadingState !== LoadingState.FETCHING_WEATHER && (
+        {weatherData.length > 0 && (
           <section className="mb-12 animate-fade-in">
             <div className="flex justify-between items-end mb-4 px-2">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -352,7 +371,7 @@ function App() {
         )}
 
         {/* Outfit Section */}
-        {selectedDay && loadingState !== LoadingState.FETCHING_WEATHER && (
+        {selectedDay && (
           <section className="animate-fade-in-up">
             <div className="flex items-center gap-4 mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
