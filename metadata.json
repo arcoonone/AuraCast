@@ -1,0 +1,7 @@
+{
+  "name": "Weather & Fashion AI",
+  "description": "A vivid weather forecast tool that generates culturally relevant outfit recommendations and fashion breakdowns based on local weather conditions.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
