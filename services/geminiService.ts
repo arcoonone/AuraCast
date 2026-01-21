@@ -1,4 +1,4 @@
-import { WeatherDay, OutfitGenerationResult, LocationSearchResult } from "../types";
+import { WeatherDay, OutfitGenerationResult, LocationSearchResult, Gender } from "../types";
 
 const POLLINATIONS_API_KEY = "pk_TciVoSMb9O1XiPaE";
 
@@ -37,7 +37,10 @@ export const fetchWeatherForecast = async (locationQuery: string): Promise<Weath
   try {
     // Determine if input is "lat,lon" or a city name
     let lat: number, lon: number;
-    const coordsMatch = locationQuery.match(/^(-?\d+(\.\d+)?),(-?\d+(\.\d+)?)$/);
+    
+    // Check if input is "lat,lon" coordinates
+    // Allow spaces after comma
+    const coordsMatch = locationQuery.trim().match(/^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$/);
     
     if (coordsMatch) {
       lat = parseFloat(coordsMatch[1]);
@@ -80,7 +83,7 @@ export const fetchWeatherForecast = async (locationQuery: string): Promise<Weath
 
   } catch (error) {
     console.error("Error fetching weather:", error);
-    throw new Error("Failed to fetch weather data.");
+    throw error; // Re-throw so UI can handle it
   }
 };
 
@@ -108,10 +111,11 @@ const fetchAuthenticatedImage = async (url: string): Promise<string> => {
 // 3. Fashion Generation (Pollinations AI)
 export const generateFashionImages = async (
   city: string, 
-  weather: WeatherDay
+  weather: WeatherDay,
+  gender: Gender
 ): Promise<OutfitGenerationResult> => {
   try {
-    const promptText = `Describe a stylish, culturally appropriate outfit for a person in ${city} where the weather is ${weather.condition} and temperature is between ${weather.minTemp}C and ${weather.maxTemp}C. Do not use markdown. Just pure text describing the outfit in 2 sentences.`;
+    const promptText = `Describe a stylish, culturally appropriate outfit for a ${gender} person in ${city} where the weather is ${weather.condition} and temperature is between ${weather.minTemp}C and ${weather.maxTemp}C. Do not use markdown. Just pure text describing the outfit in 2 sentences.`;
 
     // 3a. Generate Description via Pollinations Text
     const seed = Math.floor(Math.random() * 100000);
@@ -134,7 +138,8 @@ export const generateFashionImages = async (
     // Sanitize description for URL
     const safeDescription = outfitDescription.replace(/[\r\n]+/g, " ").trim();
     
-    const outfitPrompt = `Full body street style photo of a person in ${city} wearing ${safeDescription}. Weather: ${weather.condition}. High fashion, photorealistic, 8k, cinematic lighting.`;
+    const genderTerm = gender === 'Unisex' ? 'person' : `${gender} model`;
+    const outfitPrompt = `Full body street style photo of a ${genderTerm} in ${city} wearing ${safeDescription}. Weather: ${weather.condition}. High fashion, photorealistic, 8k, cinematic lighting.`;
     const breakdownPrompt = `Knolling flat lay photography of fashion items: ${safeDescription}. Clean neutral background, organized layout, high quality product photography.`;
 
     // Encode path components properly

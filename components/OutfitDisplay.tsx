@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { OutfitGenerationResult, WeatherDay } from '../types';
 
 interface OutfitDisplayProps {
@@ -16,6 +16,8 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
   onGenerate,
   city 
 }) => {
+  const [showPrompt, setShowPrompt] = useState(false);
+
   if (!selectedDay) {
     return (
       <div className="h-96 flex items-center justify-center text-slate-500 border-2 border-dashed border-slate-700 rounded-3xl">
@@ -66,10 +68,25 @@ export const OutfitDisplay: React.FC<OutfitDisplayProps> = ({
 
   return (
     <div className="animate-fade-in-up">
-      <div className="mb-6 p-4 bg-slate-800/50 rounded-xl border border-slate-700 backdrop-blur-md">
-        <p className="text-slate-200 font-light italic text-center text-lg leading-relaxed">
-          "{data.description}"
-        </p>
+      {/* Hidden Prompt / Description */}
+      <div className="mb-6 flex flex-col items-center">
+        <button 
+          onClick={() => setShowPrompt(!showPrompt)}
+          className="text-xs text-slate-500 hover:text-indigo-400 transition-colors flex items-center gap-1 mb-2 uppercase tracking-widest font-bold"
+        >
+          {showPrompt ? 'Hide' : 'Show'} AI Fashion Insight
+          <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 transform transition-transform ${showPrompt ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </button>
+
+        {showPrompt && (
+          <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700 backdrop-blur-md max-w-2xl animate-fade-in-down">
+            <p className="text-slate-200 font-light italic text-center text-lg leading-relaxed">
+              "{data.description}"
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

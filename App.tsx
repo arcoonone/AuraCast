@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { WeatherCard } from './components/WeatherCard';
 import { OutfitDisplay } from './components/OutfitDisplay';
 import { fetchWeatherForecast, generateFashionImages, searchCities } from './services/geminiService';
-import { WeatherDay, OutfitGenerationResult, LoadingState, LocationSearchResult } from './types';
+import { WeatherDay, OutfitGenerationResult, LoadingState, LocationSearchResult, Gender } from './types';
 
 // Icons
 const LocationIcon = () => (
@@ -36,6 +36,7 @@ const getCountryFlag = (countryCode?: string) => {
 function App() {
   const [city, setCity] = useState('');
   const [inputCity, setInputCity] = useState('');
+  const [gender, setGender] = useState<Gender>('Female');
   
   // Search state
   const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
@@ -54,12 +55,20 @@ function App() {
         try {
             const res = await fetch('https://get.geojs.io/v1/ip/geo.json');
             const data = await res.json();
-            if (data.city) {
+            
+            // Prefer coordinates if available to avoid "City not found" errors during geocoding
+            if (data.latitude && data.longitude) {
+                const coords = `${data.latitude},${data.longitude}`;
+                const cityName = data.city || "Current Location";
+                setCity(cityName);
+                setInputCity(cityName);
+                loadWeather(coords);
+            } else if (data.city) {
                 setCity(data.city);
                 setInputCity(data.city);
                 loadWeather(data.city);
             } else {
-              throw new Error("City not found in IP data");
+              throw new Error("Location info not found in IP data");
             }
         } catch (e) {
             console.error("IP loc failed, default to Tokyo", e);
@@ -99,6 +108,7 @@ function App() {
         setSelectedDay(forecast[0]);
       }
     } catch (e) {
+      console.error("Load weather error:", e);
       setError("Failed to load weather. Please check the city name and try again.");
     } finally {
       setLoadingState(LoadingState.IDLE);
@@ -171,15 +181,16 @@ function App() {
     if (!selectedDay || !city) return;
     
     // Check cache
-    if (outfitData[selectedDay.date]) return;
+    const cacheKey = `${selectedDay.date}-${gender}`;
+    if (outfitData[cacheKey]) return;
 
     setLoadingState(LoadingState.GENERATING_OUTFIT);
     try {
       const locationContext = city === "Current Location" ? "your area" : city;
-      const result = await generateFashionImages(locationContext, selectedDay);
+      const result = await generateFashionImages(locationContext, selectedDay, gender);
       setOutfitData(prev => ({
         ...prev,
-        [selectedDay.date]: result
+        [cacheKey]: result
       }));
     } catch (e) {
       console.error(e);
@@ -188,6 +199,8 @@ function App() {
       setLoadingState(LoadingState.IDLE);
     }
   };
+
+  const currentOutfit = selectedDay ? outfitData[`${selectedDay.date}-${gender}`] : null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-pink-500 selection:text-white pb-20">
@@ -212,63 +225,82 @@ function App() {
             </p>
           </div>
 
-          {/* Search Component */}
-          <div className="relative w-full md:w-auto z-50" ref={searchRef}>
-            <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 bg-slate-800/50 p-2 rounded-2xl border border-slate-700/50 backdrop-blur-md shadow-lg">
-              <div className="relative flex-1 md:w-64">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <LocationIcon />
-                </div>
-                <input
-                  type="text"
-                  value={inputCity}
-                  onChange={(e) => setInputCity(e.target.value)}
-                  placeholder="Enter city (e.g. Tokyo or 东京)"
-                  className="block w-full pl-10 pr-3 py-2 bg-transparent border-none focus:ring-0 text-white placeholder-slate-500 font-medium"
-                  autoComplete="off"
-                />
-              </div>
-              
-              <button 
-                type="button"
-                onClick={handleGps}
-                className="p-2 text-slate-400 hover:text-green-400 transition-colors"
-                title="Use GPS"
-              >
-                <GpsIcon />
-              </button>
-              
-              <button 
-                type="submit"
-                className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all shadow-md"
-              >
-                <SearchIcon />
-              </button>
-            </form>
+          <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto z-50">
+            {/* Gender Selector - Height Matched to Search */}
+             <div className="bg-slate-800/50 p-2 rounded-2xl border border-slate-700/50 backdrop-blur-md shadow-lg flex items-center h-14">
+                {(['Female', 'Male', 'Unisex'] as Gender[]).map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setGender(g)}
+                    className={`px-4 h-10 rounded-xl text-sm font-medium transition-all flex items-center justify-center ${
+                      gender === g 
+                        ? 'bg-indigo-600 text-white shadow-md' 
+                        : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                    }`}
+                  >
+                    {g}
+                  </button>
+                ))}
+             </div>
 
-            {/* Dropdown Results */}
-            {showDropdown && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fade-in-down">
-                <ul>
-                  {searchResults.map((result) => (
-                    <li key={result.id}>
-                      <button
-                        onClick={() => handleSelectLocation(result)}
-                        className="w-full text-left px-4 py-3 hover:bg-indigo-600/20 hover:text-white text-slate-300 transition-colors flex items-center justify-between group"
-                      >
-                        <span className="font-medium">
-                          {result.name}
-                          {result.admin1 && <span className="text-slate-500 font-normal text-sm ml-2">, {result.admin1}</span>}
-                        </span>
-                        <span className="text-sm opacity-50 group-hover:opacity-100 flex items-center gap-2">
-                           {result.country} {getCountryFlag(result.country_code)}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {/* Search Component - Explicit Height Added */}
+            <div className="relative flex-1" ref={searchRef}>
+              <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 bg-slate-800/50 p-2 rounded-2xl border border-slate-700/50 backdrop-blur-md shadow-lg h-14">
+                <div className="relative flex-1 md:w-64">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <LocationIcon />
+                  </div>
+                  <input
+                    type="text"
+                    value={inputCity}
+                    onChange={(e) => setInputCity(e.target.value)}
+                    placeholder="Enter city (e.g. Tokyo or 东京)"
+                    className="block w-full pl-10 pr-3 py-2 bg-transparent border-none focus:ring-0 text-white placeholder-slate-500 font-medium"
+                    autoComplete="off"
+                  />
+                </div>
+                
+                <button 
+                  type="button"
+                  onClick={handleGps}
+                  className="p-2 text-slate-400 hover:text-green-400 transition-colors"
+                  title="Use GPS"
+                >
+                  <GpsIcon />
+                </button>
+                
+                <button 
+                  type="submit"
+                  className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all shadow-md"
+                >
+                  <SearchIcon />
+                </button>
+              </form>
+
+              {/* Dropdown Results */}
+              {showDropdown && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-fade-in-down z-50">
+                  <ul>
+                    {searchResults.map((result) => (
+                      <li key={result.id}>
+                        <button
+                          onClick={() => handleSelectLocation(result)}
+                          className="w-full text-left px-4 py-3 hover:bg-indigo-600/20 hover:text-white text-slate-300 transition-colors flex items-center justify-between group"
+                        >
+                          <span className="font-medium">
+                            {result.name}
+                            {result.admin1 && <span className="text-slate-500 font-normal text-sm ml-2">, {result.admin1}</span>}
+                          </span>
+                          <span className="text-sm opacity-50 group-hover:opacity-100 flex items-center gap-2">
+                             {result.country} {getCountryFlag(result.country_code)}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -322,7 +354,7 @@ function App() {
             </div>
 
             <OutfitDisplay 
-              data={outfitData[selectedDay.date] || null}
+              data={currentOutfit || null}
               isLoading={loadingState === LoadingState.GENERATING_OUTFIT}
               selectedDay={selectedDay}
               onGenerate={handleGenerateOutfit}

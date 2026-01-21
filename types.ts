@@ -36,3 +36,5 @@ export interface LocationState {
   lng?: number;
   useGps: boolean;
 }
+
+export type Gender = 'Female' | 'Male' | 'Unisex';
