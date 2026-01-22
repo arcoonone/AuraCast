@@ -156,8 +156,6 @@ function App() {
            loadWeather('Tokyo', 'Tokyo');
         }
       }
-      // If we already have weather data, do nothing (keep showing the old valid data).
-      // The red border on the input (isSearchError) will indicate the failure to the user.
     } finally {
       setLoadingState(LoadingState.IDLE);
     }
@@ -378,8 +376,8 @@ function App() {
                 15-Day Forecast
               </h2>
               
-              {/* Desktop Scroll Controls */}
-              <div className="hidden md:flex gap-2">
+              {/* Scroll Controls - Visible on all screens to ensure access to hidden cards */}
+              <div className="flex gap-2">
                 <button 
                   onClick={() => scrollWeather('left')} 
                   className="p-2 rounded-full bg-slate-800/50 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-all text-slate-300 hover:text-white"
@@ -440,6 +438,23 @@ function App() {
             />
           </section>
         )}
+
+        {/* Footer with Credits */}
+        <footer className="mt-20 border-t border-slate-800/50 pt-8 flex flex-col items-center justify-center gap-4 text-center">
+            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-slate-500">
+              <a href="https://open-meteo.com/" target="_blank" rel="noreferrer" className="hover:text-indigo-400 transition-colors">
+                Weather Data by Open-Meteo
+              </a>
+              <span className="hidden sm:block w-1 h-1 bg-slate-700 rounded-full"></span>
+              <a href="https://pollinations.ai" target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-pink-400 transition-colors group">
+                <span>Built with</span>
+                <span className="font-bold text-slate-300 group-hover:text-white transition-colors">pollinations.ai</span>
+              </a>
+            </div>
+            <p className="text-xs text-slate-600">
+               © {new Date().getFullYear()} AuraCast.
+            </p>
+        </footer>
       </div>
     </div>
   );

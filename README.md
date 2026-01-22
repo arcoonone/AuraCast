@@ -33,6 +33,11 @@ It doesn't just tell you it's raining—it shows you exactly what to wear, visua
   - **Generative AI:** [Pollinations.ai](https://pollinations.ai/) (Used for generating text descriptions and rendering images).
   - **IP Geolocation:** [GeoJS](https://www.geojs.io/).
 
+## ❤️ Credits
+
+- **Generative AI:** Powered by [pollinations.ai](https://pollinations.ai).
+- **Weather Data:** Provided by [Open-Meteo](https://open-meteo.com/).
+
 ## 🚀 Getting Started
 
 ### Prerequisites
