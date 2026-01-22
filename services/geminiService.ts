@@ -115,10 +115,16 @@ export const generateFashionImages = async (
   gender: Gender
 ): Promise<OutfitGenerationResult> => {
   try {
-    const promptText = `Describe a stylish, culturally appropriate outfit for a ${gender} person in ${city} where the weather is ${weather.condition} and temperature is between ${weather.minTemp}C and ${weather.maxTemp}C. Do not use markdown. Just pure text describing the outfit in 2 sentences.`;
+    // Define model age and characteristics based on gender
+    let subjectDescription = "person";
+    if (gender === 'Male') subjectDescription = "25-year-old male model";
+    else if (gender === 'Female') subjectDescription = "18-year-old female model";
+    else subjectDescription = "androgynous fashion model";
+
+    const promptText = `Describe a trendy, fashion-forward outfit for a ${subjectDescription} in ${city} where the weather is ${weather.condition} and temperature is between ${weather.minTemp}C and ${weather.maxTemp}C. Incorporate current popular fashion trends and local street style. Do not use markdown. Just pure text describing the outfit in 2 sentences.`;
 
     // 3a. Generate Description via Pollinations Text
-    const seed = Math.floor(Math.random() * 100000);
+    const seed = Math.floor(Math.random() * 1000000);
     // Sanitize prompt for URL
     const safePromptText = promptText.replace(/[\r\n]+/g, " ").trim();
     const textUrl = `https://gen.pollinations.ai/text/${encodeURIComponent(safePromptText)}?seed=${seed}&model=gemini-fast`;
@@ -133,17 +139,16 @@ export const generateFashionImages = async (
     const outfitDescription = await textRes.text();
 
     // 3b. Generate Images via Pollinations Image (fetch as Blob with Auth)
-    const imageSeed = Math.floor(Math.random() * 100000);
+    const imageSeed = Math.floor(Math.random() * 1000000);
     
     // Sanitize description for URL
     const safeDescription = outfitDescription.replace(/[\r\n]+/g, " ").trim();
     
-    const genderTerm = gender === 'Unisex' ? 'person' : `${gender} model`;
-    const outfitPrompt = `Full body street style photo of a ${genderTerm} in ${city} wearing ${safeDescription}. Weather: ${weather.condition}. High fashion, photorealistic, 8k, cinematic lighting.`;
-    const breakdownPrompt = `Knolling flat lay photography of fashion items: ${safeDescription}. Clean neutral background, organized layout, high quality product photography.`;
+    const outfitPrompt = `Full body street style photo of a ${subjectDescription} in ${city} wearing ${safeDescription}. Weather: ${weather.condition}. Trending on social media, high fashion, photorealistic, 8k, cinematic lighting, depth of field.`;
+    const breakdownPrompt = `Knolling flat lay photography of fashion items: ${safeDescription}. Clean neutral background, organized layout, high quality product photography, studio lighting.`;
 
     // Encode path components properly
-    const outfitUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(outfitPrompt)}?model=klein&width=768&height=1024&nologo=true&seed=${imageSeed}`;
+    const outfitUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(outfitPrompt)}?model=zimage&width=768&height=1024&nologo=true&seed=${imageSeed}`;
     const breakdownUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(breakdownPrompt)}?model=zimage&width=768&height=1024&nologo=true&seed=${imageSeed + 1}`;
 
     // Execute fetches in parallel

@@ -29,6 +29,18 @@ const UserIcon = () => (
   </svg>
 );
 
+const ChevronLeft = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+  </svg>
+);
+
+const ChevronRight = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+  </svg>
+);
+
 // Flag helper
 const getCountryFlag = (countryCode?: string) => {
   if (!countryCode) return '';
@@ -49,6 +61,9 @@ function App() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isSearchError, setIsSearchError] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Weather list scrolling
+  const weatherListRef = useRef<HTMLDivElement>(null);
 
   const [weatherData, setWeatherData] = useState<WeatherDay[]>([]);
   const [selectedDay, setSelectedDay] = useState<WeatherDay | null>(null);
@@ -94,6 +109,17 @@ function App() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Weather Scroll Handlers
+  const scrollWeather = (direction: 'left' | 'right') => {
+    if (weatherListRef.current) {
+      const scrollAmount = 300;
+      weatherListRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   // Updated loadWeather to handle errors gracefully without clearing previous valid state immediately
   const loadWeather = async (query: string, displayName?: string) => {
@@ -195,12 +221,12 @@ function App() {
     setSelectedDay(day);
   };
 
-  const handleGenerateOutfit = async () => {
+  const handleGenerateOutfit = async (forceRefresh: boolean = false) => {
     if (!selectedDay || !city) return;
     
-    // Check cache
+    // Check cache unless forcing refresh
     const cacheKey = `${selectedDay.date}-${gender}`;
-    if (outfitData[cacheKey]) return;
+    if (!forceRefresh && outfitData[cacheKey]) return;
 
     setLoadingState(LoadingState.GENERATING_OUTFIT);
     try {
@@ -212,7 +238,6 @@ function App() {
       }));
     } catch (e) {
       console.error(e);
-      // Optional: Could add a toast here, but alert is acceptable for action failure (vs passive load failure)
       alert("Failed to generate outfit images. Please try again.");
     } finally {
       setLoadingState(LoadingState.IDLE);
@@ -343,29 +368,51 @@ function App() {
             <p className="text-xl text-indigo-300 font-medium">Consulting the oracles...</p>
           </div>
         )}
-        
-        {/* Note: Error banner removed for graceful handling. Visual cues are in the search bar. */}
 
         {/* Weather Strip */}
         {weatherData.length > 0 && (
-          <section className="mb-12 animate-fade-in">
+          <section className="mb-12 animate-fade-in group/weather">
             <div className="flex justify-between items-end mb-4 px-2">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <span className="w-2 h-6 bg-pink-500 rounded-full inline-block"></span>
                 15-Day Forecast
               </h2>
-              <span className="text-xs text-slate-500 uppercase tracking-widest">Scroll to explore</span>
+              
+              {/* Desktop Scroll Controls */}
+              <div className="hidden md:flex gap-2">
+                <button 
+                  onClick={() => scrollWeather('left')} 
+                  className="p-2 rounded-full bg-slate-800/50 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-all text-slate-300 hover:text-white"
+                >
+                  <ChevronLeft />
+                </button>
+                <button 
+                  onClick={() => scrollWeather('right')} 
+                  className="p-2 rounded-full bg-slate-800/50 hover:bg-indigo-600 border border-slate-700 hover:border-indigo-500 transition-all text-slate-300 hover:text-white"
+                >
+                  <ChevronRight />
+                </button>
+              </div>
             </div>
             
-            <div className="flex overflow-x-auto gap-4 pb-6 pt-2 px-2 scrollbar-hide snap-x">
-              {weatherData.map((day) => (
-                <WeatherCard 
-                  key={day.date} 
-                  day={day} 
-                  isSelected={selectedDay?.date === day.date}
-                  onClick={() => handleDaySelect(day)}
-                />
-              ))}
+            <div className="relative">
+              {/* Fade masks for scroll indication */}
+              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-950 to-transparent z-10 pointer-events-none md:hidden"></div>
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-950 to-transparent z-10 pointer-events-none md:hidden"></div>
+
+              <div 
+                ref={weatherListRef}
+                className="flex overflow-x-auto gap-4 pb-6 pt-2 px-2 scrollbar-hide snap-x scroll-smooth"
+              >
+                {weatherData.map((day) => (
+                  <WeatherCard 
+                    key={day.date} 
+                    day={day} 
+                    isSelected={selectedDay?.date === day.date}
+                    onClick={() => handleDaySelect(day)}
+                  />
+                ))}
+              </div>
             </div>
           </section>
         )}
@@ -373,19 +420,22 @@ function App() {
         {/* Outfit Section */}
         {selectedDay && (
           <section className="animate-fade-in-up">
-            <div className="flex items-center gap-4 mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                 <span className="text-3xl">🧥</span> 
-                 Style Forecast for {selectedDay.dayOfWeek}
-              </h2>
-              <div className="h-px flex-1 bg-gradient-to-r from-slate-700 to-transparent"></div>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                   <span className="text-3xl">🧥</span> 
+                   Style Forecast for {selectedDay.dayOfWeek}
+                </h2>
+                <div className="hidden sm:block h-px w-24 bg-gradient-to-r from-slate-700 to-transparent"></div>
+              </div>
             </div>
 
             <OutfitDisplay 
               data={currentOutfit || null}
               isLoading={loadingState === LoadingState.GENERATING_OUTFIT}
               selectedDay={selectedDay}
-              onGenerate={handleGenerateOutfit}
+              onGenerate={() => handleGenerateOutfit(false)}
+              onRefresh={() => handleGenerateOutfit(true)}
               city={city}
             />
           </section>
